@@ -1,0 +1,87 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Mar 16 17:59:02 2026
+
+@author: ieddy
+
+https://data.open-power-system-data.org/time_series/2020-10-06
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+df = pd.read_csv("\GB Power Modelling Dataset.csv")
+df = df.sort_values("utc_timestamp").reset_index(drop=True)
+
+df['utc_timestamp'] = pd.to_datetime(df['utc_timestamp'])
+
+print(df.isnull().sum())
+
+df[df['GB_GBN_wind_onshore_profile'].isnull()]
+
+
+df["GB_GBN_solar_capacity"] = df["GB_GBN_solar_capacity"].ffill()
+df["GB_GBN_wind_capacity"] = df["GB_GBN_wind_capacity"].ffill()
+df["GB_GBN_wind_offshore_capacity"] = df["GB_GBN_wind_offshore_capacity"].ffill()
+df["GB_GBN_wind_onshore_capacity"] = df["GB_GBN_wind_onshore_capacity"].ffill()
+
+df["GB_GBN_load_actual_entsoe_transparency"] = df["GB_GBN_load_actual_entsoe_transparency"].interpolate()
+df["GB_GBN_load_forecast_entsoe_transparency"] = df["GB_GBN_load_forecast_entsoe_transparency"].interpolate()
+df["GB_GBN_price_day_ahead"] = df["GB_GBN_price_day_ahead"].interpolate()
+df["GB_GBN_solar_generation_actual"] = df["GB_GBN_solar_generation_actual"].interpolate()
+df["GB_GBN_wind_generation_actual"] = df["GB_GBN_wind_generation_actual"].interpolate()
+df["GB_GBN_wind_offshore_generation_actual"] = df["GB_GBN_wind_offshore_generation_actual"].interpolate()
+df["GB_GBN_wind_onshore_generation_actual"] = df["GB_GBN_wind_onshore_generation_actual"].interpolate()
+
+df["GB_GBN_solar_profile"] = df["GB_GBN_solar_generation_actual"] / df["GB_GBN_solar_capacity"]
+df["GB_GBN_wind_profile"] = df["GB_GBN_wind_generation_actual"] / df["GB_GBN_wind_capacity"]
+df["GB_GBN_wind_offshore_profile"] = df["GB_GBN_wind_offshore_generation_actual"] / df["GB_GBN_wind_offshore_capacity"]
+df["GB_GBN_wind_onshore_profile"] = df["GB_GBN_wind_onshore_generation_actual"] / df["GB_GBN_wind_onshore_capacity"]
+
+df = df.dropna()
+
+
+df["GB_GBN_price_day_ahead"].describe()
+df["GB_GBN_solar_generation_actual"].describe()
+df["GB_GBN_wind_generation_actual"].describe()
+
+
+df_february_2018 = df[(df["utc_timestamp"].dt.month == 2) & 
+                 (df["utc_timestamp"].dt.year == 2018)]
+
+df_week_feb = df[(df['utc_timestamp'] >= '2018-02-01') & 
+             (df['utc_timestamp'] < '2018-02-08')]
+
+fig, ax1 = plt.subplots(figsize=(10,6))
+
+ln1 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_solar_generation_actual'], color='orange', label='Solar (MWh)')
+ln2 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_wind_generation_actual'], color='green', label='Wind (MWh)')
+ax1.set_xlabel('Date')
+ax1.set_ylabel('Power Output (MWh)', color='black')
+ax1.tick_params(axis='y')
+
+# Create secondary axis (for Price)
+ax2 = ax1.twinx()
+ln3 = ax2.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_price_day_ahead'], color='blue', label='Day ahead (£/MWh)', linestyle='--')
+ax2.set_ylabel('Price (£/MWh)', color='blue')
+ax2.tick_params(axis='y', labelcolor='blue')
+
+# Combine legends
+lns = ln1 + ln2 + ln3
+labs = [l.get_label() for l in lns]
+ax1.legend(lns, labs, loc='upper right')
+
+plt.title('Price vs Solar and Wind Output')
+fig.tight_layout() # Ensures labels don't overlap
+plt.show()
+
+#########################################
+
+df["total_renewable_generation"] = df["GB_GBN_solar_generation_actual"] + df["GB_GBN_wind_generation_actual"]
+
+df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr()
+
+df.plot.scatter("GB_GBN_price_day_ahead", "total_renewable_generation")
+
+print((df["GB_GBN_price_day_ahead"] > 200).sum())
