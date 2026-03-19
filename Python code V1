@@ -116,7 +116,7 @@ lns = ln1 + ln2
 labs = [l.get_label() for l in lns]
 ax1.legend(lns, labs, loc='upper right')
 
-plt.title('Average February vs July wind output')
+plt.title('Average February vs July solar output')
 fig.tight_layout() # Ensures labels don't overlap
 plt.show()
 
@@ -124,8 +124,8 @@ plt.show()
 # Graph to demonstrate difference between February and July wind generation across a day
 fig, ax1 = plt.subplots(figsize=(10,6))
 
-ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_solar_generation_actual'], color='orange', label='February Wind (MWh)')
-ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_solar_generation_actual'], color='green', label='July Wind (MWh)')
+ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_wind_generation_actual'], color='orange', label='February Wind (MWh)')
+ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_wind_generation_actual'], color='green', label='July Wind (MWh)')
 ax1.set_xlabel('Hour of Day')
 ax1.set_ylabel('Power Output (MWh)', color='black')
 ax1.tick_params(axis='y')
@@ -138,4 +138,3 @@ ax1.legend(lns, labs, loc='upper right')
 plt.title('Average February vs July wind output')
 fig.tight_layout() # Ensures labels don't overlap
 plt.show()
-
