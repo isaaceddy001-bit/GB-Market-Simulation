@@ -11,21 +11,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-df = pd.read_csv("\GB Power Modelling Dataset.csv")
+df = pd.read_csv("C:/Users/ieddy/OneDrive/Documents/Python Scripts/GB Power Modelling Dataset.csv")
 df = df.sort_values("utc_timestamp").reset_index(drop=True)
 
+# Adjust timestamps
 df['utc_timestamp'] = pd.to_datetime(df['utc_timestamp'])
 
+# Print sum of null datapoints in each column
 print(df.isnull().sum())
 
-df[df['GB_GBN_wind_onshore_profile'].isnull()]
-
-
+# Forward fill capacities for wind and solar. Capacities do not regularly change, so assuming constant is justified
 df["GB_GBN_solar_capacity"] = df["GB_GBN_solar_capacity"].ffill()
 df["GB_GBN_wind_capacity"] = df["GB_GBN_wind_capacity"].ffill()
 df["GB_GBN_wind_offshore_capacity"] = df["GB_GBN_wind_offshore_capacity"].ffill()
 df["GB_GBN_wind_onshore_capacity"] = df["GB_GBN_wind_onshore_capacity"].ffill()
 
+# Interpolate day ahead prices and generation due to constant changes hourly
 df["GB_GBN_load_actual_entsoe_transparency"] = df["GB_GBN_load_actual_entsoe_transparency"].interpolate()
 df["GB_GBN_load_forecast_entsoe_transparency"] = df["GB_GBN_load_forecast_entsoe_transparency"].interpolate()
 df["GB_GBN_price_day_ahead"] = df["GB_GBN_price_day_ahead"].interpolate()
@@ -34,34 +35,36 @@ df["GB_GBN_wind_generation_actual"] = df["GB_GBN_wind_generation_actual"].interp
 df["GB_GBN_wind_offshore_generation_actual"] = df["GB_GBN_wind_offshore_generation_actual"].interpolate()
 df["GB_GBN_wind_onshore_generation_actual"] = df["GB_GBN_wind_onshore_generation_actual"].interpolate()
 
+# Profiles are re-calculated using filled generation and capacity values to ensure consistency
 df["GB_GBN_solar_profile"] = df["GB_GBN_solar_generation_actual"] / df["GB_GBN_solar_capacity"]
 df["GB_GBN_wind_profile"] = df["GB_GBN_wind_generation_actual"] / df["GB_GBN_wind_capacity"]
 df["GB_GBN_wind_offshore_profile"] = df["GB_GBN_wind_offshore_generation_actual"] / df["GB_GBN_wind_offshore_capacity"]
 df["GB_GBN_wind_onshore_profile"] = df["GB_GBN_wind_onshore_generation_actual"] / df["GB_GBN_wind_onshore_capacity"]
 
-df = df.dropna()
+df = df.dropna() # check to drop any remaining N/As
 
-
+# Basic descriptives for each variable
 df["GB_GBN_price_day_ahead"].describe()
 df["GB_GBN_solar_generation_actual"].describe()
 df["GB_GBN_wind_generation_actual"].describe()
 
-
-df_february_2018 = df[(df["utc_timestamp"].dt.month == 2) & 
-                 (df["utc_timestamp"].dt.year == 2018)]
-
+# Extract the set time frame from February for the following graph
 df_week_feb = df[(df['utc_timestamp'] >= '2018-02-01') & 
              (df['utc_timestamp'] < '2018-02-08')]
 
+#######################################
+
+# Below is a two-axis plot that shows wind and solar generation alongside price
 fig, ax1 = plt.subplots(figsize=(10,6))
 
+# Create first axis to show power generation for wind and solar
 ln1 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_solar_generation_actual'], color='orange', label='Solar (MWh)')
 ln2 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_wind_generation_actual'], color='green', label='Wind (MWh)')
 ax1.set_xlabel('Date')
 ax1.set_ylabel('Power Output (MWh)', color='black')
 ax1.tick_params(axis='y')
 
-# Create secondary axis (for Price)
+# Create secondary axis for price
 ax2 = ax1.twinx()
 ln3 = ax2.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_price_day_ahead'], color='blue', label='Day ahead (£/MWh)', linestyle='--')
 ax2.set_ylabel('Price (£/MWh)', color='blue')
@@ -78,6 +81,7 @@ plt.show()
 
 #########################################
 
+# Correlation analysis and scatter plot for price against total renewable generation - shows merit order
 df["total_renewable_generation"] = df["GB_GBN_solar_generation_actual"] + df["GB_GBN_wind_generation_actual"]
 
 df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr()
@@ -85,3 +89,53 @@ df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr()
 df.plot.scatter("GB_GBN_price_day_ahead", "total_renewable_generation")
 
 print((df["GB_GBN_price_day_ahead"] > 200).sum())
+
+########################################
+
+# Changes timestamps to hourly, and extract hourly means across the years for February and July
+df["hour"] = df["utc_timestamp"].dt.hour
+
+df_feb = df[df["utc_timestamp"].dt.month == 2]
+feb_hourly = df_feb.groupby("hour")[["GB_GBN_solar_generation_actual", "GB_GBN_wind_generation_actual"]].mean()
+
+df_jul = df[df["utc_timestamp"].dt.month == 7]
+jul_hourly = df_jul.groupby("hour")[["GB_GBN_solar_generation_actual", "GB_GBN_wind_generation_actual"]].mean()
+
+
+# Graph to demonstrate difference between February and July solar generation across a day
+fig, ax1 = plt.subplots(figsize=(10,6))
+
+ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_solar_generation_actual'], color='orange', label='February Wind (MWh)')
+ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_solar_generation_actual'], color='green', label='July Wind (MWh)')
+ax1.set_xlabel('Hour of Day')
+ax1.set_ylabel('Power Output (MWh)', color='black')
+ax1.tick_params(axis='y')
+
+# Combine legends
+lns = ln1 + ln2
+labs = [l.get_label() for l in lns]
+ax1.legend(lns, labs, loc='upper right')
+
+plt.title('Average February vs July wind output')
+fig.tight_layout() # Ensures labels don't overlap
+plt.show()
+
+
+# Graph to demonstrate difference between February and July wind generation across a day
+fig, ax1 = plt.subplots(figsize=(10,6))
+
+ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_solar_generation_actual'], color='orange', label='February Wind (MWh)')
+ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_solar_generation_actual'], color='green', label='July Wind (MWh)')
+ax1.set_xlabel('Hour of Day')
+ax1.set_ylabel('Power Output (MWh)', color='black')
+ax1.tick_params(axis='y')
+
+# Combine legends
+lns = ln1 + ln2
+labs = [l.get_label() for l in lns]
+ax1.legend(lns, labs, loc='upper right')
+
+plt.title('Average February vs July wind output')
+fig.tight_layout() # Ensures labels don't overlap
+plt.show()
+
