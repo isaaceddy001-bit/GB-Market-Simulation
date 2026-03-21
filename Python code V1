@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Mon Mar 16 17:59:02 2026
 
@@ -10,6 +9,12 @@ https://data.open-power-system-data.org/time_series/2020-10-06
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import grangercausalitytests
+import seaborn as sns
+
+
+### Data Cleaning
 
 df = pd.read_csv("C:/Users/ieddy/OneDrive/Documents/Python Scripts/GB Power Modelling Dataset.csv")
 df = df.sort_values("utc_timestamp").reset_index(drop=True)
@@ -19,6 +24,9 @@ df['utc_timestamp'] = pd.to_datetime(df['utc_timestamp'])
 
 # Print sum of null datapoints in each column
 print(df.isnull().sum())
+
+# All generation and capacity columns cleaned for completeness
+# Offshore/onshore split retained for potential future analysis
 
 # Forward fill capacities for wind and solar. Capacities do not regularly change, so assuming constant is justified
 df["GB_GBN_solar_capacity"] = df["GB_GBN_solar_capacity"].ffill()
@@ -43,16 +51,12 @@ df["GB_GBN_wind_onshore_profile"] = df["GB_GBN_wind_onshore_generation_actual"] 
 
 df = df.dropna() # check to drop any remaining N/As
 
-# Basic descriptives for each variable
-df["GB_GBN_price_day_ahead"].describe()
-df["GB_GBN_solar_generation_actual"].describe()
-df["GB_GBN_wind_generation_actual"].describe()
+
+### Exploratory Analysis
 
 # Extract the set time frame from February for the following graph
 df_week_feb = df[(df['utc_timestamp'] >= '2018-02-01') & 
              (df['utc_timestamp'] < '2018-02-08')]
-
-#######################################
 
 # Below is a two-axis plot that shows wind and solar generation alongside price
 fig, ax1 = plt.subplots(figsize=(10,6))
@@ -79,18 +83,16 @@ plt.title('Price vs Solar and Wind Output')
 fig.tight_layout() # Ensures labels don't overlap
 plt.show()
 
-#########################################
-
 # Correlation analysis and scatter plot for price against total renewable generation - shows merit order
 df["total_renewable_generation"] = df["GB_GBN_solar_generation_actual"] + df["GB_GBN_wind_generation_actual"]
 
-df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr()
+print(df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr())
 
 df.plot.scatter("GB_GBN_price_day_ahead", "total_renewable_generation")
+plt.xlabel("GB Day Ahead Price")
+plt.ylabel("Total Renewable Generation")
+plt.show()
 
-print((df["GB_GBN_price_day_ahead"] > 200).sum())
-
-########################################
 
 # Changes timestamps to hourly, and extract hourly means across the years for February and July
 df["hour"] = df["utc_timestamp"].dt.hour
@@ -101,40 +103,158 @@ feb_hourly = df_feb.groupby("hour")[["GB_GBN_solar_generation_actual", "GB_GBN_w
 df_jul = df[df["utc_timestamp"].dt.month == 7]
 jul_hourly = df_jul.groupby("hour")[["GB_GBN_solar_generation_actual", "GB_GBN_wind_generation_actual"]].mean()
 
+# Generate plots to show February and July comparison for solar and wind generation over average 24 hours
+def plot_hourly_comparison(feb_hourly, jul_hourly, column, title):
+    fig, ax1 = plt.subplots(figsize=(10,6))
 
-# Graph to demonstrate difference between February and July solar generation across a day
-fig, ax1 = plt.subplots(figsize=(10,6))
+    ln1 = ax1.plot(feb_hourly.index, feb_hourly[column], color='orange', label='February (MWh)')
+    ln2 = ax1.plot(jul_hourly.index, jul_hourly[column], color='green', label='July (MWh)')
+    ax1.set_xlabel('Hour of Day')
+    ax1.set_ylabel('Power Output (MWh)', color='black')
+    ax1.tick_params(axis='y')
 
-ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_solar_generation_actual'], color='orange', label='February Wind (MWh)')
-ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_solar_generation_actual'], color='green', label='July Wind (MWh)')
-ax1.set_xlabel('Hour of Day')
-ax1.set_ylabel('Power Output (MWh)', color='black')
-ax1.tick_params(axis='y')
+    # Combine legends
+    lns = ln1 + ln2
+    labs = [l.get_label() for l in lns]
+    ax1.legend(lns, labs, loc='upper right')
 
-# Combine legends
-lns = ln1 + ln2
-labs = [l.get_label() for l in lns]
-ax1.legend(lns, labs, loc='upper right')
+    plt.title(title)
+    fig.tight_layout() # Ensures labels don't overlap
+    plt.show()
+    
+plot_hourly_comparison(feb_hourly, jul_hourly, "GB_GBN_solar_generation_actual", "Average February vs July Solar Output")
+plot_hourly_comparison(feb_hourly, jul_hourly, "GB_GBN_wind_generation_actual", "Average February vs July Wind Output")
 
-plt.title('Average February vs July solar output')
-fig.tight_layout() # Ensures labels don't overlap
+### Statistical Analysis
+
+result_price = adfuller(df["GB_GBN_price_day_ahead"])
+print(f"Price ADF statistic: {result_price[0]:.4f}, p-value: {result_price[1]:.4e}")
+
+result_renewables = adfuller(df["total_renewable_generation"])
+print(f"Renewables ADF statistic: {result_renewables[0]:.4f}, p-value: {result_renewables[1]:.4e}")
+
+result_renewables_solar = adfuller(df["GB_GBN_solar_generation_actual"])
+print(f"Renewables ADF statistic: {result_renewables_solar[0]:.4f}, p-value: {result_renewables_solar[1]:.4e}")
+
+result_renewables_wind = adfuller(df["GB_GBN_wind_generation_actual"])
+print(f"Renewables ADF statistic: {result_renewables_wind[0]:.4f}, p-value: {result_renewables_wind[1]:.4e}")
+
+
+# Granger Causality Tests - renewable generation vs day ahead price
+results_gc_total = grangercausalitytests(df[["GB_GBN_price_day_ahead", "total_renewable_generation"]], 24, verbose=False)
+results_gc_solar = grangercausalitytests(df[["GB_GBN_price_day_ahead", "GB_GBN_solar_generation_actual"]], 24, verbose=False)
+results_gc_wind = grangercausalitytests(df[["GB_GBN_price_day_ahead", "GB_GBN_wind_generation_actual"]], 24, verbose=False)
+
+# Extract minimum p-values across all lags for each test
+min_p_total = min(result[0]["ssr_ftest"][1] for result in results_gc_total.values())
+min_p_solar = min(result[0]["ssr_ftest"][1] for result in results_gc_solar.values())
+min_p_wind = min(result[0]["ssr_ftest"][1] for result in results_gc_wind.values())
+
+print("Granger Causality Summary:")
+print(f"Total renewables → price: min p-value = {min_p_total:.2e} (significant at all 24 lags)")
+print(f"Wind → price: min p-value = {min_p_wind:.2e} (significant at all 24 lags)")
+print(f"Solar → price: min p-value = {min_p_solar:.2e} (significant at lags 2-24, lag 1 not significant)")
+
+def plot_fft(series, title):
+    fft_values = np.fft.fft(series)
+    power = np.abs(fft_values) ** 2
+    frequencies = np.fft.fftfreq(len(series), d=1)
+    periods = 1 / frequencies
+    mask = frequencies > 0
+    plt.figure(figsize=(12, 4))
+    plt.plot(periods[mask], power[mask])
+    plt.xlim(6, 200)
+    plt.xlabel("Period (hours)")
+    plt.ylabel("Power")
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
+
+plot_fft(df["GB_GBN_price_day_ahead"], "Power Spectrum - Day Ahead Price")
+plot_fft(df["GB_GBN_solar_generation_actual"], "Power Spectrum - Solar Generation")
+plot_fft(df["GB_GBN_wind_generation_actual"], "Power Spectrum - Wind Generation")
+
+### Battery Simulation
+
+# Battery: 200 MWh capacity, 50 MW rate limit, 85% efficiency, 100 MWh starting charge
+# Base case dispatch: charge below £30/MWh, discharge above £55/MWh
+# Sensitivity analysis tests charge thresholds £10-£40 and discharge thresholds £50-£90
+
+df = df.reset_index(drop=True)
+
+def calculate_battery_charge(GB_GBN_price_day_ahead, capacity, rate_limit,
+                             efficiency, starting_charge, charge_threshold, discharge_threshold):
+    current_charge = starting_charge
+    results = []
+    discharge_results = []
+    revenue_results = []
+    for i in range(len(df)):
+        if GB_GBN_price_day_ahead[i] < 0:
+            discharge = 0
+            cost = 0
+        elif GB_GBN_price_day_ahead[i] < charge_threshold and current_charge < capacity:
+            previous_charge = current_charge
+            current_charge = min(current_charge + rate_limit * efficiency, capacity)
+            charge_amount = current_charge - previous_charge
+            cost = charge_amount * GB_GBN_price_day_ahead[i]
+            discharge = 0
+        elif GB_GBN_price_day_ahead[i] > discharge_threshold and current_charge > 0:
+            previous_charge = current_charge
+            current_charge = max(current_charge - rate_limit * efficiency, 0)
+            discharge = previous_charge - current_charge
+            cost = 0
+        else:
+            discharge = 0
+            cost = 0
+        revenue = discharge * GB_GBN_price_day_ahead[i]
+        net = revenue - cost
+        results.append(current_charge)
+        discharge_results.append(discharge)
+        revenue_results.append(net)
+    return results, discharge_results, revenue_results
+
+# Run base case simulation and store results
+df["current_charge"], df["discharge"], df["net_revenue"] = calculate_battery_charge(
+    df["GB_GBN_price_day_ahead"], 200, 50, 0.85, 100, 30, 55)
+
+print(df[["GB_GBN_price_day_ahead", "current_charge", "discharge", "net_revenue"]].head(20))
+print(f"Total net revenue: £{df['net_revenue'].sum():,.0f}")
+
+# Annual revenue breakdown
+df["year"] = df["utc_timestamp"].dt.year
+print(df.groupby("year")["net_revenue"].sum())
+
+annual_revenue = df.groupby("year")["net_revenue"].sum()
+
+plt.figure(figsize=(10, 6))
+plt.bar(annual_revenue.index, annual_revenue.values, color='steelblue')
+plt.xlabel("Year")
+plt.ylabel("Net Revenue (£)")
+plt.title("Annual Battery Arbitrage Revenue - GB Power Market")
+plt.tight_layout()
 plt.show()
 
+# Run sensitivity analysis across charge and discharge threshold combinations
+sensitivity_results = {}
+for charge_threshold in [10, 20, 30, 40]:
+    for discharge_threshold in [50, 60, 70, 80, 90]:
+        _, _, revenue = calculate_battery_charge(
+            df["GB_GBN_price_day_ahead"], 200, 50, 0.85, 100,
+            charge_threshold, discharge_threshold)
+        sensitivity_results[(charge_threshold, discharge_threshold)] = sum(revenue)
 
-# Graph to demonstrate difference between February and July wind generation across a day
-fig, ax1 = plt.subplots(figsize=(10,6))
+# Sensitivity analysis heatmap
+sensitivity_df = pd.DataFrame([
+    {"charge": k[0], "discharge": k[1], "net_revenue": v}
+    for k, v in sensitivity_results.items()
+])
 
-ln1 = ax1.plot(feb_hourly.index, feb_hourly['GB_GBN_wind_generation_actual'], color='orange', label='February Wind (MWh)')
-ln2 = ax1.plot(jul_hourly.index, jul_hourly['GB_GBN_wind_generation_actual'], color='green', label='July Wind (MWh)')
-ax1.set_xlabel('Hour of Day')
-ax1.set_ylabel('Power Output (MWh)', color='black')
-ax1.tick_params(axis='y')
+pivot = sensitivity_df.pivot(index="charge", columns="discharge", values="net_revenue")
 
-# Combine legends
-lns = ln1 + ln2
-labs = [l.get_label() for l in lns]
-ax1.legend(lns, labs, loc='upper right')
-
-plt.title('Average February vs July wind output')
-fig.tight_layout() # Ensures labels don't overlap
+plt.figure(figsize=(10, 6))
+sns.heatmap(pivot, annot=True, fmt=".0f", cmap="YlGn")
+plt.title("Battery Arbitrage Revenue Sensitivity Analysis (£)")
+plt.xlabel("Discharge Threshold (£/MWh)")
+plt.ylabel("Charge Threshold (£/MWh)")
+plt.tight_layout()
 plt.show()
