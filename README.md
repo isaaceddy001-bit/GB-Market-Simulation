@@ -20,4 +20,4 @@ The dataset chosen for this project uses hourly data specifically for the GB mar
 
 Python 3.x, Pandas, Matplotlib, Numpy, Seaborn
 
-For full methodology and results, see the [project notebook](GB Power Market Notebook.ipynb)
+For full methodology and results, see the [project notebook](GB_Power_Market_Notebook.ipynb)
