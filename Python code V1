@@ -62,10 +62,10 @@ df_week_feb = df[(df['utc_timestamp'] >= '2018-02-01') &
 fig, ax1 = plt.subplots(figsize=(10,6))
 
 # Create first axis to show power generation for wind and solar
-ln1 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_solar_generation_actual'], color='orange', label='Solar (MWh)')
-ln2 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_wind_generation_actual'], color='green', label='Wind (MWh)')
+ln1 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_solar_generation_actual'], color='orange', label='Solar (MW)')
+ln2 = ax1.plot(df_week_feb['utc_timestamp'], df_week_feb['GB_GBN_wind_generation_actual'], color='green', label='Wind (MW)')
 ax1.set_xlabel('Date')
-ax1.set_ylabel('Power Output (MWh)', color='black')
+ax1.set_ylabel('Power Output (MW)', color='black')
 ax1.tick_params(axis='y')
 
 # Create secondary axis for price
