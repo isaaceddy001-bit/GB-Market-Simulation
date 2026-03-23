@@ -89,8 +89,8 @@ df["total_renewable_generation"] = df["GB_GBN_solar_generation_actual"] + df["GB
 print(df[["GB_GBN_price_day_ahead", "total_renewable_generation"]].corr())
 
 df.plot.scatter("GB_GBN_price_day_ahead", "total_renewable_generation")
-plt.xlabel("GB Day Ahead Price")
-plt.ylabel("Total Renewable Generation")
+plt.xlabel("GB Day Ahead Price (£/MWh)")
+plt.ylabel("Total Renewable Generation (MW)")
 plt.show()
 
 
@@ -106,20 +106,19 @@ jul_hourly = df_jul.groupby("hour")[["GB_GBN_solar_generation_actual", "GB_GBN_w
 # Generate plots to show February and July comparison for solar and wind generation over average 24 hours
 def plot_hourly_comparison(feb_hourly, jul_hourly, column, title):
     fig, ax1 = plt.subplots(figsize=(10,6))
-
-    ln1 = ax1.plot(feb_hourly.index, feb_hourly[column], color='orange', label='February (MWh)')
-    ln2 = ax1.plot(jul_hourly.index, jul_hourly[column], color='green', label='July (MWh)')
+    ln1 = ax1.plot(feb_hourly.index, feb_hourly[column], color='orange', label='February (MW)')
+    ln2 = ax1.plot(jul_hourly.index, jul_hourly[column], color='green', label='July (MW)')
     ax1.set_xlabel('Hour of Day')
-    ax1.set_ylabel('Power Output (MWh)', color='black')
+    ax1.set_ylabel('Power Output (MW)', color='black')
     ax1.tick_params(axis='y')
 
     # Combine legends
     lns = ln1 + ln2
     labs = [l.get_label() for l in lns]
     ax1.legend(lns, labs, loc='upper right')
-
     plt.title(title)
-    fig.tight_layout() # Ensures labels don't overlap
+
+    fig.tight_layout()
     plt.show()
     
 plot_hourly_comparison(feb_hourly, jul_hourly, "GB_GBN_solar_generation_actual", "Average February vs July Solar Output")
