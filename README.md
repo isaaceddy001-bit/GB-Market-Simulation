@@ -16,6 +16,26 @@ The dataset chosen for this project uses hourly data specifically for the GB mar
 
 - The battery simulation base case shows very volatile net revenues across the years, with the sensitivity analysis showing the most profitable spread being the tightest around the mean day-ahead power price
 
+## Methodology and Assumptions
+
+**Causal Analysis**
+
+The initial hypothesis was that renewable generation would have a causal effect on day-ahead prices, given the weather-dependent and volatile nature of wind and solar output. Granger causality testing was used to formally test this relationship, examining whether past values of renewable generation improve the prediction of day-ahead prices beyond prices alone. This was found to hold across all lags tested from 1 to 24 hours, with wind generation showing an immediate causal effect and solar lagging by approximately one hour.
+
+**Spectral Analysis**
+
+Spectral analysis was applied to identify dominant cyclical patterns in both renewable generation and day-ahead prices. Dominant 12 and 24-hour cycles were identified in solar generation and day-ahead prices, consistent with diurnal demand and generation patterns. Wind generation was found to be largely stochastic, with only a weak 24-hour cycle present.
+
+**Battery Simulation**
+
+The battery simulation was designed to exploit price spreads between low and high price periods. Initial charge and discharge thresholds were set based on descriptive statistics of the day-ahead price series, establishing a baseline scenario generating £2.1 million total revenue over the period.
+
+A sensitivity analysis was then conducted across a range of charge and discharge threshold combinations. The tightest spread around the price mean proved most profitable, generating approximately £4.7 million over the period. This highlights the importance of parameter selection in battery dispatch optimisation.
+
+**Limitations and Future Work**
+
+The current simulation does not account for transmission costs, grid fees, or degradation costs, which would compress margins in practice. Planned extensions include modelling multiple batteries simultaneously summing to the same total capacity, with parameters optimised individually by season to reflect differing summer and winter price dynamics, and the incorporation of more realistic transaction cost assumptions.
+
 ## Requirements
 
 Python 3.x, Pandas, Matplotlib, Numpy, Seaborn
