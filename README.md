@@ -1,5 +1,7 @@
 # GB Power Market Simulation
 
+[![Open in nbviewer](https://img.shields.io/badge/Open%20in-nbviewer-orange?logo=jupyter)](https://nbviewer.org/github/isaaceddy001-bit/GB-Market-Simulation/blob/main/GB_Power_Market_Notebook.ipynb)
+
 ## Overview
 The project looks at the GB power market, utilising hourly data for GB day-ahead prices, wind and solar generation. Granger causality and spectral analysis is used to find the relationships between renewables and price fluctuations. A battery simulation has also been constructed to see how the spread of charge and discharge prices can vary net revenue of the battery.
 
